@@ -20,7 +20,6 @@ def home():
 #GET /books - Hämtar alla böcker i databasen. Du ska kunna filtrera på titel, författare och/eller genre via en parameter i search-query. Exempelvis: /books?genre=biography
 #working
 @app.route("/books", methods=["GET"])
-@log_request_body
 def get_books():
     connection = get_db_connection()
     cursor = connection.cursor()
