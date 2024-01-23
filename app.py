@@ -156,14 +156,15 @@ def add_review():
         #Extract data from request
         book_id = data["book_id"]
         review_text =data["review_text"]
+        review_score = data["review_score"]
 
         connection = get_db_connection()
         cursor = connection.cursor()
 
         try:
             cursor.execute(
-                "INSERT INTO reviews (book_id, review_text) VALUES (?, ?)",
-                (book_id, review_text)
+                "INSERT INTO reviews (book_id, review_text, review_score) VALUES (?, ?, ?)",
+                (book_id, review_text, review_score)
             )
             connection.commit()
             return jsonify({"message": f"Review for Book with {book_id} added successfully"}), 201
