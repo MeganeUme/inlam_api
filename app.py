@@ -1,22 +1,13 @@
 from flask import Flask, request, jsonify, current_app, g
 import requests
 import sqlite3
+from database import get_db_connection, close_db_connection
+from decorator import log_request_body
 
 app = Flask(__name__)
 
 app.config["DATABASE"] = "Books.db"
 
-def get_db_connection():
-    if 'db' not in g:
-        g.db = sqlite3.connect(current_app.config['DATABASE'])
-        g.db.row_factory = sqlite3.Row
-    return g.db
-
-@app.teardown_appcontext
-def close_db_connection(exception=None):
-    db = g.pop('db', None)
-    if db is not None:
-        db.close()
 
 
 @app.route("/")
@@ -26,11 +17,17 @@ def home():
 #GET /books - Hämtar alla böcker i databasen. Du ska kunna filtrera på titel, författare och/eller genre via en parameter i search-query. Exempelvis: /books?genre=biography
 #working
 @app.route("/books", methods=["GET"])
+@log_request_body
 def get_books():
     connection = get_db_connection()
     cursor = connection.cursor()
 
-    cursor.execute("SELECT * FROM books")
+    cursor.execute("""
+                    SELECT books.*, CAST(avg(reviews.review_score) AS REAL) as average_score
+                    FROM books
+                    JOIN reviews ON books.book_id = reviews.book_id
+                    GROUP BY books.book_id, books.title
+                """)
     data = cursor.fetchall()
     
     books_list = []
@@ -40,7 +37,8 @@ def get_books():
             "title": row["title"],
             "author": row["author"],
             "summary": row["summary"],
-            "genre": row["genre"]
+            "genre": row["genre"],
+            "average_score" :row["average_score"]
         }
         books_list.append(book)
     
@@ -49,16 +47,15 @@ def get_books():
 #POST /books - Lägger till en eller flera böcker i databasen. 
 #working - room for improvement   
 @app.route("/books", methods=["POST"])
+@log_request_body
 def add_books():
     if request.method == "POST":
-        # Get data from the request
-        data = request.get_json()
+        data = request.json
 
-        # Validate the required fields
-        if "title" not in data or "author" not in data:
+        # Validate the required fields and data types
+        if not all(field in data for field in ['title', 'author']):
             return jsonify({"error": "Title and Author are required"}), 400
 
-        # Extract data from the request
         title = data["title"]
         author = data["author"]
         summary = data.get("summary", "")
@@ -85,7 +82,14 @@ def get_book_id(book_id):
     connection = get_db_connection()
     cursor = connection.cursor()
 
-    cursor.execute("SELECT * FROM books WHERE book_id = ?", (book_id,))
+    cursor.execute("""
+                    SELECT books.*, CAST(avg(reviews.review_score) AS REAL) as average_score
+                    FROM books
+                    JOIN reviews ON books.book_id = reviews.book_id
+                    WHERE books.book_id = ?
+                    GROUP BY books.book_id, books.title
+                """, (book_id,))
+
     data = cursor.fetchone()
 
     if data:
@@ -95,7 +99,8 @@ def get_book_id(book_id):
             "title": data["title"],
             "author": data["author"],
             "summary": data["summary"],
-            "genre": data["genre"]
+            "genre": data["genre"],
+            "average_score": data["average_score"]
         }
         return jsonify(book), 200
     else:
@@ -106,9 +111,10 @@ def get_book_id(book_id):
 #PUT /books/{book_id} - Uppdaterar information om en enskild bok.
 # NEED TO FIX THIS working
 @app.route("/books/<int:book_id>", methods=["PUT"])
+@log_request_body
 def update_book(book_id):
     if request.method == "PUT":
-        data = request.get_json()
+        data = request.json
 
         connection = get_db_connection()
         cursor = connection.cursor()
@@ -145,17 +151,16 @@ def delete_book(book_id):
 #POST /reviews -  Lägger till en ny recension till en bok.
 #working improvement ?
 @app.route("/reviews", methods=["POST"])
+@log_request_body
 def add_review():
     if request.method == "POST":
-        #Get data from request
-        data = request.get_json()
+        data = request.json
 
-        if "book_id" not in data or "review_text" not in data:
-            return jsonify({"error": "book_id and review_text is required"}), 400
-        
-        #Extract data from request
+        if not all(field in data for field in ['book_id', 'review_text', 'review_score']):
+            return jsonify({"error": "book_id, review_text, and review_score are required"}), 400
+
         book_id = data["book_id"]
-        review_text =data["review_text"]
+        review_text = data["review_text"]
         review_score = data["review_score"]
 
         connection = get_db_connection()
@@ -263,6 +268,7 @@ def get_top_reviews():
 
 #GET /author - Hämtar en kort sammanfattning om författaren och författarens mest kända verk. Använd externa API:er för detta.
 @app.route("/author", methods=["GET"])
+@log_request_body
 def get_author():
     author_name = request.args.get("name")
 
