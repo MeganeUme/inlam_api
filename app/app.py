@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, current_app, g
+from flask import Flask, request, jsonify, current_app, g, abort
 from app.database import get_db_connection, close_db_connection
 from app.decorator import log_request_body
 
@@ -41,7 +41,7 @@ def get_books():
                 "author": row["author"],
                 "summary": row["summary"],
                 "genre": row["genre"],
-                "average_score" :row["average_score"]
+                "average_score": float(row["average_score"])
             }
             books_list.append(book)
         
@@ -128,6 +128,15 @@ def update_book(book_id):
         cursor = connection.cursor()
 
         try:
+            # Check if the book with the specified ID exists
+            cursor.execute("SELECT * FROM books WHERE book_id = ?", (book_id,))
+            existing_book = cursor.fetchone()
+
+            if existing_book is None:
+                # Return a 404 Not Found status code and a meaningful error message
+                abort(404, description=f"Book with ID {book_id} not found")
+
+
             set_clause = ', '.join(f"{field} = ?" for field in data.keys())
 
             cursor.execute(
@@ -151,8 +160,18 @@ def delete_book(book_id):
     cursor = connection.cursor()
 
     try:
+        # Check if the book with the specified ID exists
+        cursor.execute("SELECT * FROM books WHERE book_id = ?", (book_id,))
+        existing_book = cursor.fetchone()
+
+        if existing_book is None:
+            # Return a 404 Not Found status code and a meaningful error message
+            abort(404, description=f"Book with ID {book_id} not found")
+
+        # Delete the book if it exists
         cursor.execute("DELETE FROM books WHERE book_id = ?", (book_id,))
         connection.commit()
+
         return jsonify({"message": f"Book with ID {book_id} deleted successfully"}), 200
 
     except Exception as e:
@@ -306,3 +325,9 @@ def get_author():
 
     except Exception as e:
         return error_response(f"Failed to fetch author information. Reason: {str(e)}", 500)
+
+
+
+@app.errorhandler(404)
+def not_found_error(error):
+    return jsonify({'error': 'Not Found', 'message': error.description}), 404
