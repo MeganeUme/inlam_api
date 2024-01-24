@@ -1,5 +1,5 @@
-from flask import Flask, request, jsonify, current_app, g, abort
-from app.database import get_db_connection, close_db_connection
+from flask import Flask, request, jsonify
+from app.database import get_db_connection
 from app.decorator import log_request_body
 
 import asyncio
@@ -180,7 +180,7 @@ def delete_book(book_id):
 
         if existing_book is None:
             # Return a 404 Not Found status code
-            abort(404, description=f"Book with ID {book_id} not found")
+            return jsonify({"error": "Not Found", "message": f"Book with ID {book_id} not found"}), 404
 
         # Delete the book if it exists
         cursor.execute("DELETE FROM books WHERE book_id = ?", (book_id,))
