@@ -15,12 +15,17 @@ app.config["DATABASE"] = "Books.db"
 
 @app.route("/")
 def home():
+    """
+    Home endpoint. Returns a simple greeting message.
+    """
     return "Hello world"
 
-#GET /books - Hämtar alla böcker i databasen. Du ska kunna filtrera på titel, författare och/eller genre via en parameter i search-query. Exempelvis: /books?genre=biography
-#working
+
 @app.route("/books", methods=["GET"])
 def get_books():
+    """
+    GET endpoint to retrieve all books from the database. 
+    """
     connection = get_db_connection()
     cursor = connection.cursor()
 
@@ -49,11 +54,14 @@ def get_books():
     except Exception as e:
         return error_response(f"Failed to fetch books. Readon: {str(e)}", 500)
 
-#POST /books - Lägger till en eller flera böcker i databasen. 
-#working - room for improvement   
+
 @app.route("/books", methods=["POST"])
 @log_request_body
 def add_books():
+    """
+    POST endpoint to add one or more books to the database.
+    Requires a JSON payload with at least 'title' and 'author' fields.
+    """
     if request.method == "POST":
         data = request.json
 
@@ -81,9 +89,12 @@ def add_books():
             connection.rollback()
             return error_response(f"Failed to add book. Reason: {str(e)}", 500)
 
-#GET /books/{book_id} - Hämtar en enskild bok.
+
 @app.route("/books/<int:book_id>", methods=["GET"])
 def get_book_id(book_id):
+    """
+    GET endpoint to retrieve information about a specific book by its ID.
+    """
     connection = get_db_connection()
     cursor = connection.cursor()
 
@@ -116,11 +127,12 @@ def get_book_id(book_id):
 
 
 
-#PUT /books/{book_id} - Uppdaterar information om en enskild bok.
-# NEED TO FIX THIS working
 @app.route("/books/<int:book_id>", methods=["PUT"])
 @log_request_body
 def update_book(book_id):
+    """
+    PUT endpoint to update information about a specific book by its ID.
+    """
     if request.method == "PUT":
         data = request.json
 
@@ -133,9 +145,8 @@ def update_book(book_id):
             existing_book = cursor.fetchone()
 
             if existing_book is None:
-                # Return a 404 Not Found status code and a meaningful error message
-                abort(404, description=f"Book with ID {book_id} not found")
-
+                # Return a 404 Not Found status code
+                return jsonify({"error": "Not Found", "message": f"Book with ID {book_id} not found"}), 404
 
             set_clause = ', '.join(f"{field} = ?" for field in data.keys())
 
@@ -152,10 +163,13 @@ def update_book(book_id):
 
 
 
-#DELETE /books/{book_id} - Tar bort en enskild bok
-#working
+
+
 @app.route("/books/<int:book_id>", methods=["DELETE"])
 def delete_book(book_id):
+    """
+    DELETE endpoint to delete a specific book by its ID.
+    """
     connection = get_db_connection()
     cursor = connection.cursor()
 
@@ -165,7 +179,7 @@ def delete_book(book_id):
         existing_book = cursor.fetchone()
 
         if existing_book is None:
-            # Return a 404 Not Found status code and a meaningful error message
+            # Return a 404 Not Found status code
             abort(404, description=f"Book with ID {book_id} not found")
 
         # Delete the book if it exists
@@ -179,11 +193,14 @@ def delete_book(book_id):
         return error_response(f"Failed to delete book. Reason: {str(e)}", 500)
 
 
-#POST /reviews -  Lägger till en ny recension till en bok.
-#working improvement ?
+
 @app.route("/reviews", methods=["POST"])
 @log_request_body
 def add_review():
+    """
+    POST endpoint to add a new review for a book.
+    Requires a JSON payload with 'book_id', 'review_text', and 'review_score' fields.
+    """
     if request.method == "POST":
         data = request.json
 
@@ -212,10 +229,11 @@ def add_review():
 
 
 
-#GET /reviews - Hämtar alla recensioner som finns i databasen
-#working
 @app.route("/reviews", methods=["GET"])
 def get_all_reviews():
+    """
+    GET endpoint to retrieve all reviews from the database.
+    """
     connection = get_db_connection()
     cursor = connection.cursor()
 
@@ -243,9 +261,11 @@ def get_all_reviews():
 
 
 
-#GET /reviews/{book_id} - Hämtar alla recensioner för en enskild bok.
 @app.route("/reviews/<int:book_id>", methods=["GET"])
 def get_book_reviews(book_id):
+    """
+    GET endpoint to retrieve all reviews for a specific book by its ID.
+    """
     connection = get_db_connection()
     cursor = connection.cursor()
 
@@ -276,9 +296,12 @@ def get_book_reviews(book_id):
     except Exception as e:
         return error_response(f"Failed to fetch reviews. Reason: {str(e)}", 500)
 
-#GET /books/top - Hämtar de fem böckerna med högst genomsnittliga recensioner.
+
 @app.route("/books/top", methods=["GET"])
 def get_top_reviews():
+    """
+    GET endpoint to retrieve the top five books with the highest average review score.
+    """
     connection = get_db_connection()
     cursor = connection.cursor()
 
@@ -311,9 +334,13 @@ def get_top_reviews():
     except Exception as e:
         return error_response(f"Failed to fetch top books. Reason: {str(e)}", 500)
 
-#GET /author - Hämtar en kort sammanfattning om författaren och författarens mest kända verk. Använd externa API:er för detta.
+
 @app.route("/author", methods=["GET"])
 def get_author():
+    """
+    GET endpoint to retrieve a brief summary about an author and their most famous works.
+    Requires the 'name' parameter in the query string.
+    """
     author_name = request.args.get("name")
 
     if author_name is None:
@@ -327,7 +354,3 @@ def get_author():
         return error_response(f"Failed to fetch author information. Reason: {str(e)}", 500)
 
 
-
-@app.errorhandler(404)
-def not_found_error(error):
-    return jsonify({'error': 'Not Found', 'message': error.description}), 404

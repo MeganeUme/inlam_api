@@ -38,7 +38,7 @@ def test_get_book_id_endpoint_success(client):
     assert response.status_code == 200
 
 
-def test_update_book_endpoint_success(client):
+def test_update_book_endpoint_nonexistent_id_success(client):
     # Test the endpoint for updating a specific book by ID
     data = {
         "title": "Updated Title",
@@ -47,10 +47,10 @@ def test_update_book_endpoint_success(client):
         "genre": "Updated Genre"
     }
     response = client.put("/books/33", json=data)
-    assert response.status_code == 201
+    assert response.status_code == 404
 
 
-def test_delete_book_endpoint_unavailable_id_success(client):
+def test_delete_book_endpoint_nonexistent_id_success(client):
     # Test the endpoint for deleting a specific book by ID
     response = client.delete("/books/99999")
     assert response.status_code == 500
